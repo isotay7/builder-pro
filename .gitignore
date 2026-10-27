@@ -1,0 +1,9 @@
+# Private lift history: never commit
+history.js
+
+# Test and scratch files
+tests/
+scratch/
+shots*/
+*.log
+.claude/

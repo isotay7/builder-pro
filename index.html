@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0d0b12">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Builder Pro">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Builder Pro</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="main"></main>
+  <nav class="tabbar" aria-label="Sections">
+    <button data-action="tab" data-tab="workouts">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/></svg>
+      <span>Workouts</span>
+    </button>
+    <button data-action="tab" data-tab="log">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8M6 6h12v14H6zM9 11h6M9 15h4"/></svg>
+      <span>Log</span>
+    </button>
+    <button data-action="tab" data-tab="progress">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M5 15l4.5-5 3.5 3 6-7"/></svg>
+      <span>Progress</span>
+    </button>
+    <button data-action="tab" data-tab="activities">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>
+      <span>Activities</span>
+    </button>
+    <button data-action="tab" data-tab="bodyweight">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 9.5a4 4 0 0 1 6 0M12 9.5l1.2-1.6"/></svg>
+      <span>Body wt</span>
+    </button>
+    <button data-action="tab" data-tab="tools">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="7"/><path d="M12 9.5V13l2.5 1.5M10 3h4"/></svg>
+      <span>Tools</span>
+    </button>
+  </nav>
+  <div id="sheet" hidden></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="seed.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
