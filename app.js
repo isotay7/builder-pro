@@ -233,24 +233,130 @@ function workoutsView() {
     if (w) return workoutEditView(w);
   }
   return `
-    <h1>Workouts</h1>
-    <button class="btn primary wide copy-week" data-action="copy-week">Copy this week</button>
+    <div class="home-glow" aria-hidden="true"><i></i><i></i><i></i></div>
+    <header class="hero">
+      ${HERO_BARBELL}
+      <h1 class="hero-title" aria-label="Builder Pro"><span aria-hidden="true">${[...'Builder Pro']
+        .map((c, i) => `<span style="--i:${i}">${c === ' ' ? '&nbsp;' : c}</span>`).join('')}</span></h1>
+    </header>
+    ${weekStrip()}
     <h2>Your workouts</h2>
-    ${db.workouts.length ? `<ul class="list">
-      ${db.workouts.map((w) => `
-        <li><button class="row" data-action="open-workout" data-id="${w.id}">
-          <span class="row-main">
-            <span class="row-title">${esc(w.name) || 'Untitled'}</span>
-            <span class="row-sub">${w.exercises.length} exercises</span>
+    ${db.workouts.length ? `<ul class="list wcards">
+      ${db.workouts.map((w, i) => {
+        const fig = figureFor(w.name);
+        return `<li style="--i:${i}"><button class="wcard" data-action="open-workout" data-id="${w.id}">
+          <span class="wcard-text">
+            <span class="wcard-name">${esc(w.name) || 'Untitled'}</span>
+            <span class="wcard-count"><b>${w.exercises.length}</b> ${w.exercises.length === 1 ? 'exercise' : 'exercises'}</span>
           </span>
-          ${ICON.chev}
-        </button></li>`).join('')}
+          <span class="wcard-art fig-${fig}" data-figure="${fig}" aria-hidden="true">${FIGURES[fig]}</span>
+        </button></li>`;
+      }).join('')}
     </ul>` : '<p class="empty">Create your first workout below.</p>'}
     <form class="new-workout" data-form="new-workout">
       <input name="name" placeholder="New workout name" autocomplete="off" required>
       <button class="btn">Create</button>
-    </form>`;
+    </form>
+    <button class="btn copy-week" data-action="copy-week">Copy this week</button>`;
 }
+
+// A day lights up when it has a lifting session with at least one logged set, or any activity done.
+function dayActive(date) {
+  return db.sessions.some((s) => s.date === date && s.entries.some((en) => en.sets.some(isFilled)))
+    || ACTIVITIES.some((a) => db.activities[`${date}|${a}`]);
+}
+
+function weekStrip() {
+  const start = weekStart(today());
+  const now = today();
+  return `
+    <section class="week" aria-label="This week">
+      <h2>This week</h2>
+      <ol class="week-days">
+        ${Array.from({ length: 7 }, (_, i) => {
+          const d = addDays(start, i);
+          const lit = dayActive(d);
+          return `<li class="day${lit ? ' lit' : ''}${d === now ? ' today' : ''}" style="--i:${i}" data-date="${d}"
+            aria-label="${fmtDate(d, { weekday: 'long', month: 'short', day: 'numeric' })}${lit ? ', active' : ''}">
+            <span class="dl">${'SMTWTFS'[i]}</span><b>${parseDate(d).getDate()}</b>
+          </li>`;
+        }).join('')}
+      </ol>
+    </section>`;
+}
+
+// Card drawing picked from words in the workout name; first match wins.
+const FIGURE_RULES = [
+  [/chest|bench|push|press/i, 'bench'],
+  [/quad|squat|leg/i, 'squat'],
+  [/back|arm|pull/i, 'pull'],
+  [/ham|glute|deadlift|hinge/i, 'deadlift'],
+];
+const figureFor = (name) => (FIGURE_RULES.find(([re]) => re.test(name)) || [, 'dumbbell'])[1];
+
+const FIGURES = {
+  bench: `<svg viewBox="0 0 120 100">
+    <path class="f-static" d="M16 74H98M26 74v16M88 74v16"/>
+    <circle cx="23" cy="64" r="6"/>
+    <path d="M30 66H72l12 9 4 15"/>
+    <g class="f-arms"><path d="M44 66V38"/></g>
+    <g class="f-bar"><path d="M10 36H78"/><path class="f-plate" d="M17 26v20M71 26v20"/></g>
+  </svg>`,
+  squat: `<svg viewBox="0 0 120 100">
+    <g class="f-up">
+      <circle cx="60" cy="16" r="6"/>
+      <path d="M60 23V52"/>
+      <path d="M32 27H88"/><path class="f-plate" d="M37 17v20M83 17v20"/>
+      <path d="M52 27l8 6 8-6"/>
+    </g>
+    <path class="f-legs-a" d="M56 52L54 71L53 90M64 52L66 71L67 90"/>
+    <path class="f-legs-b" d="M56 66L42 73L50 90M64 66L78 73L70 90"/>
+    <path class="f-static" d="M44 92H76"/>
+  </svg>`,
+  pull: `<svg viewBox="0 0 120 100">
+    <path class="f-static" d="M14 10H106"/>
+    <g class="f-arms"><path d="M44 10L55 52M76 10L65 52"/></g>
+    <g class="f-body">
+      <circle cx="60" cy="44" r="6"/>
+      <path d="M60 51V76M60 76L54 94M60 76L66 94"/>
+    </g>
+  </svg>`,
+  deadlift: `<svg viewBox="0 0 120 100">
+    <g class="f-pose-a">
+      <circle cx="56" cy="18" r="6"/>
+      <path d="M56 25V56M56 32L58 60M56 56L58 74L56 92M56 56L52 74L54 92"/>
+      <circle class="f-plate" cx="58" cy="62" r="10"/>
+    </g>
+    <g class="f-pose-b">
+      <circle cx="84" cy="38" r="6"/>
+      <path d="M46 58L77 42M72 45V76M46 58L58 74L56 92M46 58L52 75L50 92"/>
+      <circle class="f-plate" cx="72" cy="80" r="10"/>
+    </g>
+  </svg>`,
+  dumbbell: `<svg viewBox="0 0 120 100">
+    <g class="f-db">
+      <path d="M36 50H84"/>
+      <rect x="24" y="34" width="12" height="32" rx="3"/><rect x="84" y="34" width="12" height="32" rx="3"/>
+      <rect x="16" y="40" width="8" height="20" rx="3"/><rect x="96" y="40" width="8" height="20" rx="3"/>
+    </g>
+  </svg>`,
+};
+
+// Hero: plates slide onto the bar, it's lifted and locked out, dropped, unloaded; loops.
+const HERO_BARBELL = `<svg class="hero-bar" viewBox="0 0 300 150" aria-hidden="true">
+  <ellipse class="hb-shadow" cx="150" cy="138" rx="118" ry="6"/>
+  <g class="hb-lift">
+    <rect class="hb-shaft" x="10" y="72" width="280" height="8" rx="4"/>
+    <rect class="hb-collar" x="80" y="62" width="8" height="28" rx="2"/>
+    <rect class="hb-collar" x="212" y="62" width="8" height="28" rx="2"/>
+    <rect class="hb-plate hb-l1" x="66" y="40" width="13" height="72" rx="3"/>
+    <rect class="hb-plate hb-l2" x="51" y="46" width="13" height="60" rx="3"/>
+    <rect class="hb-plate hb-l3" x="38" y="53" width="11" height="46" rx="3"/>
+    <rect class="hb-plate hb-r1" x="221" y="40" width="13" height="72" rx="3"/>
+    <rect class="hb-plate hb-r2" x="236" y="46" width="13" height="60" rx="3"/>
+    <rect class="hb-plate hb-r3" x="251" y="53" width="11" height="46" rx="3"/>
+  </g>
+</svg>`;
 
 function workoutEditView(w) {
   return `
@@ -542,6 +648,7 @@ function render(anim = false) {
   });
   const main = $('#main');
   main.innerHTML = VIEWS[view.tab]();
+  main.classList.toggle('home', view.tab === 'workouts' && !view.workoutId);
   view.slide = null;
   if (anim) {
     main.classList.remove('enter');
