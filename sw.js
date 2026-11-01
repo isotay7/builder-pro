@@ -1,5 +1,5 @@
 // Bump CACHE whenever any app file changes so phones pick up the new version.
-const CACHE = 'builder-pro-v5';
+const CACHE = 'builder-pro-v7';
 const FILES = [
   './',
   './index.html',
@@ -13,7 +13,12 @@ const FILES = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));
+  // cache: 'reload' skips the browser's HTTP cache, so a new version never stores stale copies of old files.
+  e.waitUntil(
+    caches.open(CACHE)
+      .then((c) => c.addAll(FILES.map((f) => new Request(f, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', (e) => {

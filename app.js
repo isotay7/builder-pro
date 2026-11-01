@@ -244,13 +244,16 @@ function workoutsView() {
     ${db.workouts.length ? `<ul class="list wcards">
       ${db.workouts.map((w, i) => {
         const fig = figureFor(w.name);
-        return `<li style="--i:${i}"><button class="wcard" data-action="open-workout" data-id="${w.id}">
-          <span class="wcard-text">
-            <span class="wcard-name">${esc(w.name) || 'Untitled'}</span>
-            <span class="wcard-count"><b>${w.exercises.length}</b> ${w.exercises.length === 1 ? 'exercise' : 'exercises'}</span>
-          </span>
-          <span class="wcard-art fig-${fig}" data-figure="${fig}" aria-hidden="true">${FIGURES[fig]}</span>
-        </button></li>`;
+        return `<li style="--i:${i}">
+          <button class="wcard" data-action="log-workout" data-id="${w.id}" aria-label="Log ${esc(w.name) || 'Untitled'}">
+            <span class="wcard-text">
+              <span class="wcard-name">${esc(w.name) || 'Untitled'}</span>
+              <span class="wcard-count"><b>${w.exercises.length}</b> ${w.exercises.length === 1 ? 'exercise' : 'exercises'}</span>
+            </span>
+            <span class="wcard-art fig-${fig}" data-figure="${fig}" aria-hidden="true">${FIGURES[fig]}</span>
+          </button>
+          <button class="wcard-edit" data-action="open-workout" data-id="${w.id}" aria-label="Edit ${esc(w.name) || 'Untitled'}">Edit</button>
+        </li>`;
       }).join('')}
     </ul>` : '<p class="empty">Create your first workout below.</p>'}
     <form class="new-workout" data-form="new-workout">
@@ -431,18 +434,27 @@ function sessionView(s) {
     </div>
     <div class="ex-stage">
       <article class="ex-card${view.slide ? ` from-${view.slide}` : ''}" data-entry="${en.id}">
-        <p class="ex-plan">${esc(en.plan)}</p>
+        <div class="card-top">
+          <p class="ex-plan">${esc(en.plan)}</p>
+          <div class="card-tools">
+            ${en.kind === 'time' ? '' : '<button class="tool-pill" data-action="open-plates">Plates</button>'}
+            <button class="tool-pill" data-action="open-timer">Timer</button>
+          </div>
+        </div>
         <h2 class="ex-name">${esc(en.name)}</h2>
         <p class="last">${last
           ? `<span class="when">Last (${fmtDate(last.date, SHORT)})</span><b>${last.sets.map((st) => `<span class="nowrap">${fmtSet(st)}</span>`).join(', ')}</b>`
           : '<span class="when">Last: none</span>'}</p>
         ${pbBanner(entryBest(s, idx))}
-        <div class="set-head" aria-hidden="true"><span>Set</span><span>lb</span><span>${label}</span><span></span></div>
+        ${en.kind === 'time'
+          ? '<div class="set-head hold" aria-hidden="true"><span>Set</span><span>sec</span><span></span><span></span></div>'
+          : `<div class="set-head" aria-hidden="true"><span>Set</span><span>lb</span><span>${label}</span><span></span></div>`}
         ${en.sets.map((st, i) => `
-          <div class="set${isFilled(st) ? ' filled' : ''}${isNewBest(s, idx, i) ? ' pb' : ''}" data-set="${i}">
+          <div class="set${en.kind === 'time' ? ' hold' : ''}${isFilled(st) ? ' filled' : ''}${isNewBest(s, idx, i) ? ' pb' : ''}" data-set="${i}">
             <span class="setno"><span>${i + 1}</span>${ICON.check}</span>
+            ${en.kind === 'time' ? holdInputs(st, i, en) : `
             <input data-bind="set-w" inputmode="decimal" value="${st.w ?? ''}" placeholder="–" aria-label="Set ${i + 1} weight in pounds">
-            <input data-bind="set-r" inputmode="numeric" value="${st.r ?? ''}" placeholder="–" aria-label="Set ${i + 1} ${label}">
+            <input data-bind="set-r" inputmode="numeric" value="${st.r ?? ''}" placeholder="–" aria-label="Set ${i + 1} ${label}">`}
             <button class="del" data-action="del-set" aria-label="Remove set ${i + 1}">${ICON.x}</button>
           </div>`).join('')}
         <button class="text-btn add-set" data-action="add-set">+ Add set</button>
@@ -454,6 +466,14 @@ function sessionView(s) {
       <button class="btn finish" data-action="finish">Finish</button>
     </div>
     ${sessFoot()}`;
+}
+
+// Hold sets: seconds only (any saved weight is kept, just not edited here), plus a stopwatch.
+function holdInputs(st, i, en) {
+  const running = stopwatch.entryId === en.id && stopwatch.setIdx === i;
+  return `
+    <input data-bind="set-r" inputmode="numeric" value="${running ? stopwatchSecs() : st.r ?? ''}" placeholder="–" aria-label="Set ${i + 1} seconds"${running ? ' class="timing"' : ''}>
+    <button class="sw-btn${running ? ' running' : ''}" data-action="stopwatch" aria-label="${running ? 'Stop' : 'Start'} stopwatch for set ${i + 1}">${running ? 'Stop' : 'Start'}</button>`;
 }
 
 function pbBanner(best) {
@@ -599,34 +619,51 @@ function bodyweightView() {
 const RING_R = 76;
 const RING_C = 2 * Math.PI * RING_R;
 
+// Plate calculator and rest timer pieces, shared by the Tools tab and the panels in a workout.
+function plateTool(total) {
+  return `
+    <p class="hint">Enter the total. Plates are per side on a 45 lb bar.</p>
+    <input class="big-input" data-bind="plate-total" inputmode="decimal" placeholder="Total lb" autocomplete="off" aria-label="Total weight in pounds" value="${total ?? ''}">
+    <div class="plate-out">${plateText(total)}</div>`;
+}
+
+function timerTool() {
+  return `
+    <p class="hint">Set the time, then start.</p>
+    <div class="timer-layout">
+      <div class="ring${timer.done ? ' done' : ''}">
+        <svg viewBox="0 0 176 176" aria-hidden="true">
+          <circle class="track" cx="88" cy="88" r="${RING_R}"/>
+          <circle class="meter" cx="88" cy="88" r="${RING_R}" stroke-dasharray="${RING_C}" stroke-dashoffset="${ringOffset()}"/>
+        </svg>
+        <p class="readout">${timerText()}</p>
+      </div>
+      <div class="timer-controls">
+        <div class="timer-inputs">
+          <label class="field"><span>Min</span><input class="t-min" inputmode="numeric" placeholder="0" autocomplete="off"></label>
+          <label class="field"><span>Sec</span><input class="t-sec" inputmode="numeric" placeholder="0" autocomplete="off"></label>
+        </div>
+        <button class="btn primary wide timer-btn" data-action="timer">${timer.end ? 'Stop' : 'Start'}</button>
+      </div>
+    </div>`;
+}
+
 function toolsView() {
   return `
     <h1>Tools</h1>
     <section class="tool">
       <h2>Plate calculator</h2>
-      <p class="hint">Enter the total. Plates are per side on a 45 lb bar.</p>
-      <input class="big-input" data-bind="plate-total" inputmode="decimal" placeholder="Total lb" autocomplete="off" aria-label="Total weight in pounds">
-      <div id="plate-out"></div>
+      ${plateTool(null)}
+    </section>
+    <section class="tool timer-tool">
+      <h2>Rest timer</h2>
+      ${timerTool()}
     </section>
     <section class="tool">
-      <h2>Rest timer</h2>
-      <p class="hint">Set the time, then start.</p>
-      <div class="timer-layout">
-        <div class="ring${timer.done ? ' done' : ''}" id="ring">
-          <svg viewBox="0 0 176 176" aria-hidden="true">
-            <circle class="track" cx="88" cy="88" r="${RING_R}"/>
-            <circle class="meter" id="ring-meter" cx="88" cy="88" r="${RING_R}" stroke-dasharray="${RING_C}" stroke-dashoffset="${ringOffset()}"/>
-          </svg>
-          <p class="readout" id="timer-display">${timerText()}</p>
-        </div>
-        <div class="timer-controls">
-          <div class="timer-inputs">
-            <label class="field"><span>Min</span><input id="t-min" inputmode="numeric" placeholder="0" autocomplete="off"></label>
-            <label class="field"><span>Sec</span><input id="t-sec" inputmode="numeric" placeholder="0" autocomplete="off"></label>
-          </div>
-          <button class="btn primary wide" id="timer-btn" data-action="timer">${timer.end ? 'Stop' : 'Start'}</button>
-        </div>
-      </div>
+      <h2>Import my data</h2>
+      <p class="hint">Paste your import text. Your workouts are replaced; history, activities and body weight are kept, and sessions already here are skipped.</p>
+      <textarea class="import-text" rows="5" placeholder="Paste here" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Import text"></textarea>
+      <button class="btn primary wide" data-action="import" style="margin-top:12px">Import</button>
     </section>`;
 }
 
@@ -650,6 +687,9 @@ function render(anim = false) {
   main.innerHTML = VIEWS[view.tab]();
   main.classList.toggle('home', view.tab === 'workouts' && !view.workoutId);
   view.slide = null;
+  if (view.tab === 'log' && view.sessionId && findSession(view.sessionId)) {
+    ui.logPlace = { sessionId: view.sessionId, exIndex: view.exIndex || 0 };
+  }
   if (anim) {
     main.classList.remove('enter');
     void main.offsetWidth;
@@ -779,40 +819,187 @@ function ringOffset() {
   return RING_C * (1 - frac);
 }
 
+// Updates every visible copy of the timer (Tools tab, timer panel) and the timer bar.
 function tickTimer() {
   if (timer.end && Date.now() >= timer.end) {
     clearInterval(timer.id);
     timer.end = 0;
     timer.done = true;
     if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
-    const btn = $('#timer-btn');
-    if (btn) btn.textContent = 'Start';
   }
-  const d = $('#timer-display');
-  if (d) d.textContent = timerText();
-  const meter = $('#ring-meter');
-  if (meter) meter.setAttribute('stroke-dashoffset', ringOffset());
-  const ring = $('#ring');
-  if (ring) ring.classList.toggle('done', timer.done);
+  document.querySelectorAll('.timer-btn').forEach((b) => { b.textContent = timer.end ? 'Stop' : 'Start'; });
+  document.querySelectorAll('.readout').forEach((d) => { d.textContent = timerText(); });
+  document.querySelectorAll('.ring .meter').forEach((m) => m.setAttribute('stroke-dashoffset', ringOffset()));
+  document.querySelectorAll('.ring').forEach((r) => r.classList.toggle('done', timer.done));
+  updateTimerBar();
 }
 
-function toggleTimer() {
+// Slim bar on every screen while the timer runs; tapping it opens the full timer.
+function updateTimerBar() {
+  const bar = $('#timerbar');
+  const on = !!timer.end;
+  if (on) {
+    bar.querySelector('.tb-time').textContent = timerText();
+    bar.querySelector('.tb-fill').style.transform = `scaleX(${Math.max(0, (timer.end - Date.now()) / timer.total)})`;
+  }
+  if (on !== bar.classList.contains('show')) {
+    bar.classList.toggle('show', on);
+    bar.setAttribute('aria-hidden', String(!on));
+    bar.tabIndex = on ? 0 : -1;
+    document.body.classList.toggle('timer-on', on);
+  }
+}
+
+function toggleTimer(btn) {
   if (timer.end) {
     clearInterval(timer.id);
     timer.end = 0;
     timer.done = false;
-    $('#timer-btn').textContent = 'Start';
     tickTimer();
     return;
   }
-  const secs = (num($('#t-min').value) || 0) * 60 + (num($('#t-sec').value) || 0);
+  const box = btn.closest('.timer-layout');
+  const secs = (num(box.querySelector('.t-min').value) || 0) * 60 + (num(box.querySelector('.t-sec').value) || 0);
   if (secs <= 0) { toast('Enter a rest time'); return; }
   timer.done = false;
   timer.total = secs * 1000;
   timer.end = Date.now() + timer.total;
   timer.id = setInterval(tickTimer, 250);
-  $('#timer-btn').textContent = 'Stop';
   tickTimer();
+}
+
+// ---------- hold stopwatch ----------
+
+// One stopwatch at a time, tied to a hold set; stopping it fills in the seconds.
+const stopwatch = { entryId: null, setIdx: -1, start: 0, sessionId: null, id: 0 };
+const stopwatchSecs = () => Math.floor((Date.now() - stopwatch.start) / 1000);
+
+function stopwatchInput() {
+  return document.querySelector(`.ex-card[data-entry="${stopwatch.entryId}"] .set[data-set="${stopwatch.setIdx}"] input`);
+}
+
+function startStopwatch(sessionId, entryId, setIdx) {
+  stopStopwatch(true);
+  Object.assign(stopwatch, { sessionId, entryId, setIdx, start: Date.now() });
+  stopwatch.id = setInterval(() => {
+    const input = stopwatchInput();
+    if (input) input.value = stopwatchSecs();
+  }, 200);
+}
+
+// fill: write the elapsed seconds into the set; otherwise just cancel.
+function stopStopwatch(fill) {
+  if (!stopwatch.entryId) return;
+  clearInterval(stopwatch.id);
+  const s = findSession(stopwatch.sessionId);
+  const en = s && s.entries.find((e) => e.id === stopwatch.entryId);
+  const st = en && en.sets[stopwatch.setIdx];
+  if (fill && st) {
+    st.r = Math.max(1, Math.round((Date.now() - stopwatch.start) / 1000));
+    save();
+  }
+  const input = stopwatchInput();
+  Object.assign(stopwatch, { entryId: null, setIdx: -1, sessionId: null });
+  if (input && st) {
+    const row = input.closest('.set');
+    input.value = st.r ?? '';
+    input.classList.remove('timing');
+    const btn = row.querySelector('.sw-btn');
+    btn.textContent = 'Start';
+    btn.classList.remove('running');
+    btn.setAttribute('aria-label', btn.getAttribute('aria-label').replace('Stop', 'Start'));
+    refreshSetRow(input);
+  }
+}
+
+// ---------- panels over the workout ----------
+
+// Plate calculator / timer opened from a lift: overlays the workout without re-rendering it.
+let panelToken = 0;
+function openPanel(kind) {
+  const root = $('#panel');
+  const token = ++panelToken;
+  const title = kind === 'plates' ? 'Plate calculator' : 'Rest timer';
+  root.innerHTML = `
+    <div class="sheet-backdrop" data-action="close-panel"></div>
+    <div class="sheet panel-sheet" role="dialog" aria-modal="true" aria-label="${title}">
+      <div class="panel-head">
+        <h2>${title}</h2>
+        <button class="panel-close" data-action="close-panel" aria-label="Close">${ICON.x}</button>
+      </div>
+      <div class="${kind === 'plates' ? 'plate-panel' : 'timer-tool'}">${kind === 'plates' ? plateTool(currentWeight()) : timerTool()}</div>
+    </div>`;
+  root.hidden = false;
+  root.dataset.token = token;
+  requestAnimationFrame(() => root.classList.add('open'));
+}
+
+function closePanel() {
+  const root = $('#panel');
+  const token = ++panelToken;
+  root.classList.remove('open');
+  setTimeout(() => { if (token === panelToken) { root.hidden = true; root.innerHTML = ''; } }, 260);
+}
+
+// Weight of the set last tapped on this card, else the last set with a weight.
+function currentWeight() {
+  const s = findSession(view.sessionId);
+  const en = s && s.entries[view.exIndex || 0];
+  if (!en) return null;
+  const picked = ui.lastSet && ui.lastSet.entryId === en.id ? en.sets[ui.lastSet.setIdx] : null;
+  if (picked && picked.w != null) return picked.w;
+  const withWeight = en.sets.filter((st) => st.w != null);
+  return withWeight.length ? withWeight[withWeight.length - 1].w : null;
+}
+
+// ---------- import ----------
+
+// The import text is JSON; smart quotes from notes apps are straightened first.
+function parseImport(text) {
+  let data;
+  try {
+    data = JSON.parse(String(text).trim().replace(/[“”„]/g, '"').replace(/[‘’]/g, "'"));
+  } catch (e) {
+    return null;
+  }
+  const ok = data && data.builderPro === 'import' && Array.isArray(data.workouts) && Array.isArray(data.sessions)
+    && data.workouts.every((w) => w.id && w.name && Array.isArray(w.exercises))
+    && data.sessions.every((s) => s.id && /^\d{4}-\d{2}-\d{2}$/.test(s.date) && Number.isInteger(s.workout) && data.workouts[s.workout] && Array.isArray(s.entries));
+  return ok ? data : null;
+}
+
+function applyImport(data) {
+  const workouts = data.workouts.map((w) => ({
+    id: w.id,
+    name: w.name,
+    exercises: w.exercises.map(([name, sets, target, kind], i) => ({ id: `${w.id}-${i}`, name, sets, target, kind })),
+  }));
+  let added = 0;
+  data.sessions.forEach((s, i) => {
+    if (db.sessions.some((x) => x.id === s.id)) return;
+    const w = workouts[s.workout];
+    db.sessions.push({
+      id: s.id,
+      date: s.date,
+      created: Date.now() + i,
+      workoutId: w.id,
+      workoutName: w.name,
+      entries: s.entries.map(([name, sets]) => {
+        const ex = w.exercises.find((e) => norm(e.name) === norm(name));
+        return {
+          id: uid(),
+          name,
+          kind: ex ? ex.kind : 'reps',
+          plan: ex ? planText(ex) : '',
+          sets: sets.map(([wt, r]) => ({ w: wt, r })),
+        };
+      }),
+    });
+    added++;
+  });
+  db.workouts = workouts;
+  save();
+  return added;
 }
 
 // ---------- copy this week ----------
@@ -854,6 +1041,26 @@ async function copyText(text) {
 
 // ---------- events ----------
 
+function startSession(w) {
+  const s = {
+    id: uid(),
+    date: today(),
+    created: Date.now(),
+    workoutId: w.id,
+    workoutName: w.name,
+    entries: w.exercises.map((e) => ({
+      id: uid(),
+      name: e.name.trim() || 'Unnamed exercise',
+      kind: e.kind,
+      plan: planText(e),
+      sets: Array.from({ length: Math.max(1, e.sets) }, () => ({ w: null, r: null })),
+    })),
+  };
+  db.sessions.push(s);
+  save();
+  go({ tab: 'log', sessionId: s.id, exIndex: 0 });
+}
+
 // The current card slides out, then the next one slides in from the other side.
 let moving = false;
 function moveExercise(dir) {
@@ -876,8 +1083,43 @@ function moveExercise(dir) {
 }
 
 const actions = {
-  tab(el) { go({ tab: el.dataset.tab }); },
-  back() { go({ tab: view.tab }); },
+  tab(el) {
+    // Log returns to the exercise you were on (kept in memory only, for tab switches).
+    const place = ui.logPlace;
+    if (el.dataset.tab === 'log' && place && findSession(place.sessionId)) go({ tab: 'log', ...place });
+    else go({ tab: el.dataset.tab });
+  },
+  back() {
+    if (view.tab === 'log') ui.logPlace = null;
+    go({ tab: view.tab });
+  },
+  'open-plates'() { openPanel('plates'); },
+  'open-timer'() { openPanel('timer'); },
+  'close-panel'() { closePanel(); },
+  stopwatch(el) {
+    const s = findSession(view.sessionId);
+    const entryId = el.closest('[data-entry]').dataset.entry;
+    const setIdx = Number(el.closest('[data-set]').dataset.set);
+    if (stopwatch.entryId === entryId && stopwatch.setIdx === setIdx) { stopStopwatch(true); return; }
+    startStopwatch(s.id, entryId, setIdx);
+    render();
+  },
+  async import() {
+    const box = $('.import-text');
+    const data = parseImport(box.value);
+    if (!data) { toast('That text is not a Builder Pro import'); return; }
+    const fresh = data.sessions.filter((s) => !db.sessions.some((x) => x.id === s.id)).length;
+    const skipped = data.sessions.length - fresh;
+    const ok = await ask({
+      title: 'Import your data?',
+      body: `Your ${db.workouts.length} workouts are replaced by the ${data.workouts.length} in the import. ${fresh} ${fresh === 1 ? 'session is' : 'sessions are'} added${skipped ? `, ${skipped} already here ${skipped === 1 ? 'is' : 'are'} skipped` : ''}. Your history, activities and body weight stay.`,
+      buttons: [{ label: 'Import', value: true, style: 'primary' }, { label: 'Cancel', value: false }],
+    });
+    if (!ok) return;
+    const added = applyImport(data);
+    box.value = '';
+    toast(`Imported ${data.workouts.length} workouts and ${added} ${added === 1 ? 'session' : 'sessions'}`);
+  },
   'open-workout'(el) { go({ tab: 'workouts', workoutId: el.dataset.id }); },
   'open-session'(el) { go({ tab: 'log', sessionId: el.dataset.id, exIndex: 0 }); },
 
@@ -904,25 +1146,16 @@ const actions = {
     save();
     actions.back();
   },
-  'start-session'() {
-    const w = findWorkout(view.workoutId);
-    const s = {
-      id: uid(),
-      date: today(),
-      created: Date.now(),
-      workoutId: w.id,
-      workoutName: w.name,
-      entries: w.exercises.map((e) => ({
-        id: uid(),
-        name: e.name.trim() || 'Unnamed exercise',
-        kind: e.kind,
-        plan: planText(e),
-        sets: Array.from({ length: Math.max(1, e.sets) }, () => ({ w: null, r: null })),
-      })),
-    };
-    db.sessions.push(s);
-    save();
-    go({ tab: 'log', sessionId: s.id, exIndex: 0 });
+  'start-session'() { startSession(findWorkout(view.workoutId)); },
+  // Home card: reopen today's session for this workout, or start one.
+  'log-workout'(el) {
+    const w = findWorkout(el.dataset.id);
+    const existing = db.sessions
+      .filter((s) => s.workoutId === w.id && s.date === today())
+      .sort(bySessionOrder)
+      .pop();
+    if (existing) go({ tab: 'log', sessionId: existing.id, exIndex: 0 });
+    else startSession(w);
   },
 
   'ex-prev'() { moveExercise(-1); },
@@ -935,6 +1168,7 @@ const actions = {
   },
   'del-set'(el) {
     const en = entryOf(el);
+    if (stopwatch.entryId === en.id) stopStopwatch(false);
     en.sets.splice(Number(el.closest('[data-set]').dataset.set), 1);
     save();
     render();
@@ -951,6 +1185,7 @@ const actions = {
     $('#sheet .sheet').classList.add('summary-sheet');
     document.querySelectorAll('#sheet [data-count]').forEach((el) => countUp(el, Number(el.dataset.count), 900));
     await pending;
+    ui.logPlace = null;
     go({ tab: 'log' });
   },
   async 'del-session'() {
@@ -976,7 +1211,7 @@ const actions = {
     render();
   },
 
-  timer() { toggleTimer(); },
+  timer(el) { toggleTimer(el); },
 
   async 'copy-week'() {
     const text = weekSummary();
@@ -1036,8 +1271,20 @@ const liveBinds = {
   'ex-sets'(el) { const n = parseInt(el.value, 10); if (n >= 1) exOf(el).sets = n; },
   'ex-target'(el) { exOf(el).target = el.value.trim(); },
   'set-w'(el) { setOf(el).w = num(el.value); refreshSetRow(el); },
-  'set-r'(el) { setOf(el).r = num(el.value); refreshSetRow(el); },
-  'plate-total'(el) { $('#plate-out').innerHTML = plateText(num(el.value)); return false; },
+  'set-r'(el) {
+    // Typing into a hold's box while its stopwatch runs takes over from the stopwatch.
+    if (stopwatch.entryId && stopwatchInput() === el) {
+      clearInterval(stopwatch.id);
+      Object.assign(stopwatch, { entryId: null, setIdx: -1, sessionId: null });
+      el.classList.remove('timing');
+      const btn = el.closest('.set').querySelector('.sw-btn');
+      btn.textContent = 'Start';
+      btn.classList.remove('running');
+    }
+    setOf(el).r = num(el.value);
+    refreshSetRow(el);
+  },
+  'plate-total'(el) { el.parentElement.querySelector('.plate-out').innerHTML = plateText(num(el.value)); return false; },
 };
 
 // Binds that apply on change and re-render.
@@ -1091,6 +1338,12 @@ function exOf(el) {
 document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-action]');
   if (el && !el.disabled && actions[el.dataset.action]) actions[el.dataset.action](el, e);
+});
+
+// Remember which set was last tapped, for the plate calculator's starting weight.
+document.addEventListener('focusin', (e) => {
+  const row = e.target.closest('.ex-card .set');
+  if (row) ui.lastSet = { entryId: row.closest('[data-entry]').dataset.entry, setIdx: Number(row.dataset.set) };
 });
 
 document.addEventListener('input', (e) => {

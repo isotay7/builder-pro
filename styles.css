@@ -333,6 +333,23 @@ main.home > *:not(.home-glow) { position: relative; z-index: 1; }
 
 /* Workout cards */
 .wcards li + li { margin-top: 12px; }
+.wcards li { position: relative; }
+.wcard-edit {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  min-height: 36px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(13, 11, 18, 0.6);
+  box-shadow: inset 0 0 0 1px rgba(183, 148, 255, 0.3);
+  color: var(--purple-hi);
+  font-size: 14px;
+  font-weight: 800;
+  transition: transform 0.28s var(--spring);
+}
+.wcard-edit:active { transform: scale(0.9); transition-duration: 0.07s; }
 .wcard {
   width: 100%;
   min-height: 132px;
@@ -472,6 +489,37 @@ main.enter .wcards li { animation: card-in 0.55s var(--spring) both; animation-d
 @keyframes card-glow { 15% { opacity: 1; } 100% { opacity: 0; } }
 
 .ex-plan { font-size: 15px; font-weight: 700; color: var(--purple-hi); }
+.card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; }
+.card-tools { display: flex; gap: 6px; }
+.tool-pill {
+  min-height: 36px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: var(--plate-2);
+  box-shadow: inset 0 0 0 1px rgba(183, 148, 255, 0.25);
+  color: var(--purple-hi);
+  font-size: 14px;
+  font-weight: 800;
+  transition: transform 0.28s var(--spring);
+}
+.tool-pill:active { transform: scale(0.9); transition-duration: 0.07s; }
+
+/* Hold sets: Set # | seconds | stopwatch | remove */
+.set.hold, .set-head.hold { grid-template-columns: 40px 1fr 96px 40px; }
+.sw-btn {
+  height: 58px;
+  border-radius: var(--r-md);
+  background: var(--plate-3);
+  color: var(--purple-hi);
+  font-weight: 800;
+  font-size: 16px;
+  transition: transform 0.28s var(--spring), background-color 0.2s, color 0.2s;
+}
+.sw-btn:active { transform: scale(0.92); transition-duration: 0.07s; }
+.sw-btn.running { background: var(--purple); color: #fff; animation: sw-pulse 1.2s ease-in-out infinite; }
+.set input.timing { box-shadow: inset 0 0 0 2px var(--purple-hi); animation: sw-breathe 1.2s ease-in-out infinite; }
+@keyframes sw-pulse { 50% { transform: scale(0.95); } }
+@keyframes sw-breathe { 50% { box-shadow: inset 0 0 0 2px rgba(183, 148, 255, 0.25); } }
 .ex-name { font-size: 34px; margin: 6px 0 14px; padding-right: 0.1em; overflow-wrap: anywhere; }
 .nowrap { white-space: nowrap; }
 .last {
@@ -763,6 +811,57 @@ main.enter .wcards li { animation: card-in 0.55s var(--spring) both; animation-d
 }
 .ring.done .readout { color: var(--purple-hi); animation: pop 0.4s var(--ease); }
 
+/* ---------- rest timer bar ---------- */
+
+.timerbar {
+  position: fixed;
+  z-index: 15;
+  top: calc(env(safe-area-inset-top) + 8px);
+  left: 16px;
+  right: 16px;
+  max-width: 528px;
+  margin: 0 auto;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(33, 28, 44, 0.96);
+  box-shadow: 0 10px 30px -8px rgba(139, 77, 255, 0.6), inset 0 0 0 1px rgba(183, 148, 255, 0.35);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  color: var(--chalk);
+  opacity: 0;
+  transform: translateY(-70px);
+  pointer-events: none;
+  transition: transform 0.4s var(--spring), opacity 0.25s;
+}
+.timerbar.show { opacity: 1; transform: none; pointer-events: auto; }
+.timerbar:active { transform: scale(0.97); transition-duration: 0.07s; }
+.tb-label { font-size: 14px; font-weight: 800; color: var(--purple-hi); }
+.tb-time { font-family: var(--display); font-style: italic; font-weight: 900; font-size: 22px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.tb-track { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(183, 148, 255, 0.18); }
+.tb-fill { position: absolute; inset: 0; background: var(--purple-hi); transform-origin: left; transition: transform 0.25s linear; }
+/* Push content down so the bar never covers it. */
+body.timer-on main { padding-top: calc(env(safe-area-inset-top) + 66px); transition: padding-top 0.3s var(--ease); }
+
+/* ---------- import ---------- */
+
+.import-text {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  font: 16px/1.4 ui-monospace, Menlo, Consolas, monospace; /* 16px+ keeps iOS from zooming */
+  color: var(--chalk);
+  background: var(--plate-2);
+  border: 1.5px solid transparent;
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+}
+.import-text:focus { outline: none; border-color: var(--purple); background: var(--plate-3); }
+
 /* ---------- tab bar ---------- */
 
 .tabbar {
@@ -831,6 +930,25 @@ main.enter .wcards li { animation: card-in 0.55s var(--spring) both; animation-d
 /* ---------- sheet (confirm / choice) ---------- */
 
 #sheet { position: fixed; inset: 0; z-index: 30; }
+#panel { position: fixed; inset: 0; z-index: 25; }
+#panel.open .sheet-backdrop { opacity: 1; }
+#panel.open .sheet { transform: none; }
+.panel-sheet { max-height: 90vh; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-top: 18px; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.panel-head h2 { margin: 0; }
+.panel-close {
+  width: 44px;
+  height: 44px;
+  margin-right: -8px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--muted);
+  transition: transform 0.28s var(--spring);
+}
+.panel-close:active { transform: scale(0.85); transition-duration: 0.07s; }
+.panel-close svg { width: 22px; height: 22px; stroke: currentColor; stroke-width: 2.5; fill: none; stroke-linecap: round; }
+.panel-sheet .hint { font-size: 14px; color: var(--muted); margin-bottom: 14px; }
 .sheet-backdrop { position: absolute; inset: 0; background: rgba(5, 3, 10, 0.6); opacity: 0; transition: opacity 0.2s; }
 .sheet {
   position: absolute;

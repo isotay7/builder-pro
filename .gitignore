@@ -7,3 +7,6 @@ scratch/
 shots*/
 *.log
 .claude/
+
+# Private import file (my plan and numbers): never commit
+my-data.txt

@@ -16,6 +16,10 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <button id="timerbar" class="timerbar" data-action="open-timer" aria-hidden="true" tabindex="-1" aria-label="Rest timer running, open timer">
+    <span class="tb-label">Rest</span><span class="tb-time">0:00</span>
+    <span class="tb-track" aria-hidden="true"><span class="tb-fill"></span></span>
+  </button>
   <main id="main"></main>
   <nav class="tabbar" aria-label="Sections">
     <button data-action="tab" data-tab="workouts">
@@ -43,6 +47,7 @@
       <span>Tools</span>
     </button>
   </nav>
+  <div id="panel" hidden></div>
   <div id="sheet" hidden></div>
   <div id="toast" role="status" aria-live="polite"></div>
   <script src="seed.js"></script>
