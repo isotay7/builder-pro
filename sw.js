@@ -1,5 +1,5 @@
 // Bump CACHE whenever any app file changes so phones pick up the new version.
-const CACHE = 'builder-pro-v7';
+const CACHE = 'builder-pro-v8';
 const FILES = [
   './',
   './index.html',

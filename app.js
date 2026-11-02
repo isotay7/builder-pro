@@ -124,6 +124,14 @@ const ui = { progressEx: null, actDate: today(), bwWeek: today() };
 
 function planText(ex) { return ex.target ? `${ex.sets} × ${ex.target}` : `${ex.sets} sets`; }
 
+// A failure lift is one whose plan says "Fail" (e.g. "10-15 · Fail last set").
+const isFailLift = (en) => String(en.plan || '').includes('Fail');
+// Its last set is "up" once every earlier set is logged and the last one isn't yet.
+function failSetUp(en) {
+  const n = en.sets.length;
+  return isFailLift(en) && n > 0 && !isFilled(en.sets[n - 1]) && en.sets.slice(0, -1).every(isFilled);
+}
+
 function toast(msg) {
   const t = $('#toast');
   t.textContent = msg;
@@ -433,7 +441,7 @@ function sessionView(s) {
       ${s.entries.map((e, i) => `<i class="${i === idx ? 'cur' : ''}${e.sets.length && e.sets.every(isFilled) ? ' done' : ''}"></i>`).join('')}
     </div>
     <div class="ex-stage">
-      <article class="ex-card${view.slide ? ` from-${view.slide}` : ''}" data-entry="${en.id}">
+      <article class="ex-card${view.slide ? ` from-${view.slide}` : ''}${failSetUp(en) ? ' fail-on' : ''}" data-entry="${en.id}">
         <div class="card-top">
           <p class="ex-plan">${esc(en.plan)}</p>
           <div class="card-tools">
@@ -446,11 +454,12 @@ function sessionView(s) {
           ? `<span class="when">Last (${fmtDate(last.date, SHORT)})</span><b>${last.sets.map((st) => `<span class="nowrap">${fmtSet(st)}</span>`).join(', ')}</b>`
           : '<span class="when">Last: none</span>'}</p>
         ${pbBanner(entryBest(s, idx))}
+        ${isFailLift(en) ? '<p class="fail-badge">Go to failure</p>' : ''}
         ${en.kind === 'time'
           ? '<div class="set-head hold" aria-hidden="true"><span>Set</span><span>sec</span><span></span><span></span></div>'
           : `<div class="set-head" aria-hidden="true"><span>Set</span><span>lb</span><span>${label}</span><span></span></div>`}
         ${en.sets.map((st, i) => `
-          <div class="set${en.kind === 'time' ? ' hold' : ''}${isFilled(st) ? ' filled' : ''}${isNewBest(s, idx, i) ? ' pb' : ''}" data-set="${i}">
+          <div class="set${en.kind === 'time' ? ' hold' : ''}${isFilled(st) ? ' filled' : ''}${isNewBest(s, idx, i) ? ' pb' : ''}${isFailLift(en) && i === en.sets.length - 1 ? ' fail-set' : ''}" data-set="${i}">
             <span class="setno"><span>${i + 1}</span>${ICON.check}</span>
             ${en.kind === 'time' ? holdInputs(st, i, en) : `
             <input data-bind="set-w" inputmode="decimal" value="${st.w ?? ''}" placeholder="–" aria-label="Set ${i + 1} weight in pounds">
@@ -1237,8 +1246,14 @@ function refreshSetRow(el) {
   const ei = view.exIndex || 0;
   const en = s.entries[ei];
   const filled = isFilled(setOf(el));
-  if (filled && !row.classList.contains('filled')) replay(row, 'pop');
+  const justFilled = filled && !row.classList.contains('filled');
+  if (justFilled) replay(row, 'pop');
   row.classList.toggle('filled', filled);
+  if (isFailLift(en)) {
+    const card = $('.ex-card');
+    card.classList.toggle('fail-on', failSetUp(en));
+    if (justFilled && row.classList.contains('fail-set')) { replay(row, 'fail-burst'); replay(card, 'fail-flash'); }
+  }
   const seg = document.querySelectorAll('.segs i')[ei];
   if (seg) seg.classList.toggle('done', en.sets.length > 0 && en.sets.every(isFilled));
 

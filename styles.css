@@ -11,6 +11,8 @@
   --purple-hi: #b794ff;
   --purple-deep: #2a1752;
   --danger: #ff6680;
+  --fire: #ff541f;
+  --fire-hi: #ffa04a;
   --r-lg: 22px;
   --r-md: 14px;
   --r-sm: 10px;
@@ -596,6 +598,45 @@ main.enter .wcards li { animation: card-in 0.55s var(--spring) both; animation-d
 .set.pb .setno svg { stroke: var(--purple); }
 .set.pb-burst .setno::after { animation: ring-burst 0.8s ease-out; border-width: 4px; }
 .set.pb-burst::before { animation: row-flash 0.9s ease-out; }
+
+/* Failure lifts (plan says "Fail"): once only the last set is left, the card glows red-orange
+   and slowly pulses, with a badge; logging that set fires a burst. Static glow with reduced motion. */
+.ex-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 2px var(--fire), 0 0 34px 6px rgba(255, 84, 31, 0.5);
+  opacity: 0;
+  pointer-events: none;
+}
+.ex-card.fail-flash::before { animation: fail-flash 0.9s ease-out; }
+.ex-card.fail-on::before { opacity: 1; animation: fail-pulse 2.2s ease-in-out infinite; }
+@keyframes fail-pulse { 50% { opacity: 0.4; } }
+@keyframes fail-flash {
+  0% { opacity: 1; box-shadow: 0 0 0 3px var(--fire-hi), 0 0 60px 14px rgba(255, 84, 31, 0.75); }
+  100% { opacity: 0; }
+}
+.fail-badge {
+  display: none;
+  width: fit-content;
+  margin: 12px 0 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: linear-gradient(100deg, var(--fire) 0%, #ff2d55 100%);
+  color: #fff;
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 900;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ex-card.fail-on .fail-badge { display: block; }
+.ex-card.fail-on .set.fail-set input { box-shadow: inset 0 0 0 2px var(--fire); }
+.ex-card.fail-on .set.fail-set .setno { background: var(--fire); color: #fff; }
+.set.fail-burst .setno::after { border-color: var(--fire-hi); border-width: 4px; animation: ring-burst 0.8s ease-out; }
+.set.fail-burst::before { background: var(--fire); animation: row-flash 0.9s ease-out; }
 
 .pb-banner {
   display: none;
